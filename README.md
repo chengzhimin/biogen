@@ -59,15 +59,14 @@ BioGen AI 是一个基于人工智能的医疗研究平台，专注于提供以�
 ### 在线访问
 直接访问 GitHub Pages 部署的网站：
 ```
-https://[your-username].github.io/[repo-name]/
+https://chengzhimin.github.io/biogen/
 ```
 
 ### 本地开发
 
 1. **克隆仓库**
 ```bash
-git clone https://github.com/[your-username]/[repo-name].git
-cd [repo-name]
+git clone https://github.com/chengzhimin/biogen.git
 ```
 
 2. **启动本地服务器**
