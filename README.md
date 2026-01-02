@@ -173,12 +173,6 @@ A: 当前版本是开源免费的演示版本。
 
 本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
 
-## 联系方式
-
-- **项目主页**: [GitHub Repository]
-- **问题反馈**: [GitHub Issues]
-- **邮箱**: biogen-ai@example.com
-
 ## 致谢
 
 感谢以下开源项目和资源：
