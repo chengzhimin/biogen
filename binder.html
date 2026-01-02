@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binder从头生成工具 - BioGen AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a365d 0%, #2d3748 50%, #1a202c 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .nav-blur {
+            backdrop-filter: blur(20px);
+            background: rgba(26, 54, 93, 0.9);
+        }
+        
+        .sequence-input {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(56, 178, 172, 0.3);
+            color: white;
+        }
+        
+        .sequence-input:focus {
+            border-color: #38b2ac;
+            box-shadow: 0 0 0 3px rgba(56, 178, 172, 0.1);
+        }
+        
+        .binding-site-selector {
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px dashed rgba(56, 178, 172, 0.5);
+            border-radius: 12px;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .binding-site-selector:hover {
+            border-color: #38b2ac;
+            background: rgba(56, 178, 172, 0.1);
+        }
+        
+        .binding-site-selector.active {
+            border-color: #ed8936;
+            background: rgba(237, 137, 54, 0.1);
+        }
+        
+        .binder-result {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .binder-result:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+        }
+        
+        .binding-energy {
+            background: linear-gradient(135deg, #38b2ac, #319795);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .specificity-score {
+            background: linear-gradient(135deg, #ed8936, #dd6b20);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .protein-viewer {
+            background: radial-gradient(circle at center, rgba(56, 178, 172, 0.1), transparent);
+            border-radius: 12px;
+            min-height: 400px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .residue-highlight {
+            fill: #ed8936;
+            stroke: #38b2ac;
+            stroke-width: 2;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .residue-highlight:hover {
+            fill: #38b2ac;
+            stroke: #ed8936;
+        }
+        
+        .interaction-line {
+            stroke: #38b2ac;
+            stroke-width: 2;
+            opacity: 0.7;
+            stroke-dasharray: 5,5;
+            animation: dash 2s linear infinite;
+        }
+        
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -10;
+            }
+        }
+        
+        .parameter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .parameter-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 nav-blur border-b border-white/10">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-teal-400 to-orange-500 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-lg">B</span>
+                    </div>
+                    <span class="text-white text-xl font-bold">BioGen AI</span>
+                </div>
+                
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="index.html" class="text-white hover:text-teal-400 transition-colors">首页</a>
+                    <a href="antibody.html" class="text-white hover:text-teal-400 transition-colors">抗体生成</a>
+                    <a href="binder.html" class="text-teal-400 font-medium">Binder设计</a>
+                    <a href="biomni.html" class="text-white hover:text-teal-400 transition-colors">AI问答</a>
+                </div>
+                
+                <button class="bg-gradient-to-r from-teal-500 to-orange-500 text-white px-6 py-2 rounded-lg font-medium hover:shadow-lg transition-all">
+                    保存设计
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="pt-24 pb-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <!-- Header -->
+            <div class="text-center mb-12">
+                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
+                    Binder从头生成工具
+                </h1>
+                <p class="text-xl text-gray-400 max-w-3xl mx-auto">
+                    基于物理原理和深度学习的蛋白质Binder设计平台，精确靶向结合位点
+                </p>
+            </div>
+
+            <!-- Tool Interface -->
+            <div class="grid lg:grid-cols-4 gap-6">
+                <!-- Left Panel - Target Input -->
+                <div class="lg:col-span-1 space-y-6">
+                    <!-- Target Protein -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-xl font-bold text-white mb-4">靶标蛋白</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">
+                                    PDB ID 或序列
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="pdb-id"
+                                    class="sequence-input w-full p-3 rounded-lg focus:outline-none"
+                                    placeholder="例如: 1ABC 或序列"
+                                >
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">
+                                    目标类型
+                                </label>
+                                <select class="w-full p-3 bg-black/30 border border-white/20 rounded-lg text-white focus:outline-none focus:border-teal-400">
+                                    <option value="protein">蛋白质</option>
+                                    <option value="peptide">肽段</option>
+                                    <option value="receptor">受体</option>
+                                    <option value="enzyme">酶</option>
+                                </select>
+                            </div>
+                            <button class="w-full bg-gradient-to-r from-teal-500 to-teal-600 text-white py-3 rounded-lg font-medium hover:shadow-lg transition-all">
+                                加载靶标结构
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Binding Site Selection -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-xl font-bold text-white mb-4">结合位点选择</h3>
+                        <div class="binding-site-selector" id="binding-site-selector">
+                            <div class="text-center">
+                                <div class="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path>
+                                    </svg>
+                                </div>
+                                <p class="text-gray-400 text-sm">点击选择结合位点</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-xs text-gray-400">
+                            <p>• 选择蛋白质表面的目标区域</p>
+                            <p>• 支持手动选择或自动识别</p>
+                            <p>• 实时预览结合界面</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Center Panel - 3D Visualization -->
+                <div class="lg:col-span-2">
+                    <div class="glass-card rounded-2xl p-6 h-full">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-bold text-white">3D结构可视化</h3>
+                            <div class="flex space-x-2">
+                                <button class="px-3 py-1 bg-teal-500/20 text-teal-400 rounded text-sm hover:bg-teal-500/30 transition-colors">
+                                    表面模式
+                                </button>
+                                <button class="px-3 py-1 bg-white/10 text-white rounded text-sm hover:bg-white/20 transition-colors">
+                                    线框模式
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="protein-viewer" id="protein-viewer">
+                            <svg viewBox="0 0 400 400" class="w-full h-full">
+                                <!-- Target protein representation -->
+                                <g id="target-protein">
+                                    <!-- Main protein body -->
+                                    <ellipse cx="200" cy="200" rx="120" ry="80" fill="#38b2ac" opacity="0.3" stroke="#38b2ac" stroke-width="2"/>
+                                    
+                                    <!-- Binding site residues -->
+                                    <circle cx="150" cy="180" r="8" class="residue-highlight" data-residue="ASP"/>
+                                    <circle cx="180" cy="160" r="8" class="residue-highlight" data-residue="TYR"/>
+                                    <circle cx="220" cy="160" r="8" class="residue-highlight" data-residue="GLU"/>
+                                    <circle cx="250" cy="180" r="8" class="residue-highlight" data-residue="ARG"/>
+                                    <circle cx="160" cy="220" r="8" class="residue-highlight" data-residue="HIS"/>
+                                    <circle cx="240" cy="220" r="8" class="residue-highlight" data-residue="LYS"/>
+                                    
+                                    <!-- Secondary structure -->
+                                    <path d="M120 150 Q140 140 160 150 Q180 160 200 150 Q220 140 240 150 Q260 160 280 150" 
+                                          stroke="#ed8936" stroke-width="3" fill="none" opacity="0.7"/>
+                                    <path d="M120 250 Q140 260 160 250 Q180 240 200 250 Q220 260 240 250 Q260 240 280 250" 
+                                          stroke="#ed8936" stroke-width="3" fill="none" opacity="0.7"/>
+                                </g>
+                                
+                                <!-- Binder representation (appears after generation) -->
+                                <g id="binder-protein" style="display: none;">
+                                    <path d="M140 140 L160 120 L180 140 L200 120 L220 140 L240 120" 
+                                          stroke="#4299e1" stroke-width="4" fill="none" opacity="0.8"/>
+                                    <circle cx="160" cy="120" r="6" fill="#4299e1"/>
+                                    <circle cx="200" cy="120" r="6" fill="#4299e1"/>
+                                    <circle cx="240" cy="120" r="6" fill="#4299e1"/>
+                                </g>
+                                
+                                <!-- Interaction lines -->
+                                <g id="interactions" style="display: none;">
+                                    <line x1="150" y1="180" x2="160" y2="120" class="interaction-line"/>
+                                    <line x1="180" y1="160" x2="180" y2="140" class="interaction-line"/>
+                                    <line x1="220" y1="160" x2="220" y2="140" class="interaction-line"/>
+                                    <line x1="250" y1="180" x2="240" y2="120" class="interaction-line"/>
+                                </g>
+                            </svg>
+                        </div>
+                        
+                        <!-- Controls -->
+                        <div class="mt-4 flex items-center justify-between">
+                            <div class="flex space-x-2">
+                                <button class="px-3 py-1 bg-white/10 text-white rounded text-sm hover:bg-white/20 transition-colors">
+                                    旋转
+                                </button>
+                                <button class="px-3 py-1 bg-white/10 text-white rounded text-sm hover:bg-white/20 transition-colors">
+                                    缩放
+                                </button>
+                                <button class="px-3 py-1 bg-white/10 text-white rounded text-sm hover:bg-white/20 transition-colors">
+                                    重置
+                                </button>
+                            </div>
+                            <div class="text-sm text-gray-400">
+                                结合能: <span class="text-teal-400 font-medium">-12.5 kcal/mol</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Panel - Results & Parameters -->
+                <div class="lg:col-span-1 space-y-6">
+                    <!-- Design Parameters -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-xl font-bold text-white mb-4">设计参数</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">
+                                    Binder长度
+                                </label>
+                                <input type="range" class="w-full" min="20" max="100" value="50" 
+                                       style="-webkit-appearance: none; appearance: none; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.2);">
+                                <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                    <span>20</span>
+                                    <span>50 aa</span>
+                                    <span>100</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">
+                                    亲和力目标
+                                </label>
+                                <select class="w-full p-2 bg-black/30 border border-white/20 rounded text-white text-sm focus:outline-none focus:border-teal-400">
+                                    <option value="high">高亲和力 (pM)</option>
+                                    <option value="medium">中等亲和力 (nM)</option>
+                                    <option value="specific">特异性优先</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">
+                                    稳定性要求
+                                </label>
+                                <input type="range" class="w-full" min="1" max="5" value="4" 
+                                       style="-webkit-appearance: none; appearance: none; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.2);">
+                                <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                    <span>低</span>
+                                    <span>中等</span>
+                                    <span>高</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button 
+                            id="generate-binder"
+                            class="w-full mt-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+                        >
+                            生成Binder
+                        </button>
+                    </div>
+
+                    <!-- Results -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-xl font-bold text-white mb-4">候选Binder</h3>
+                        <div id="binder-results" style="display: none;">
+                            <!-- Results will be populated by JavaScript -->
+                        </div>
+                        <div id="no-binder-results" class="text-center py-8">
+                            <div class="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                                </svg>
+                            </div>
+                            <p class="text-gray-400 text-sm">点击"生成Binder"查看结果</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analysis Panel -->
+    <section class="py-16 bg-black/20" id="analysis-panel" style="display: none;">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-white mb-4">结合分析</h2>
+                <p class="text-gray-400">详细的分子相互作用分析</p>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Binding Energy Chart -->
+                <div class="glass-card rounded-2xl p-6">
+                    <h3 class="text-xl font-bold text-white mb-4">结合能分析</h3>
+                    <div id="energy-chart" style="height: 300px;"></div>
+                </div>
+                
+                <!-- Interaction Map -->
+                <div class="glass-card rounded-2xl p-6">
+                    <h3 class="text-xl font-bold text-white mb-4">相互作用图谱</h3>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                            <span class="text-gray-300">氢键</span>
+                            <span class="text-teal-400 font-medium">8</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                            <span class="text-gray-300">疏水作用</span>
+                            <span class="text-orange-400 font-medium">12</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                            <span class="text-gray-300">离子键</span>
+                            <span class="text-purple-400 font-medium">4</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                            <span class="text-gray-300">范德华力</span>
+                            <span class="text-blue-400 font-medium">25</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 border-t border-white/10">
+        <div class="max-w-7xl mx-auto px-6 text-center">
+            <div class="flex items-center justify-center space-x-3 mb-6">
+                <div class="w-10 h-10 bg-gradient-to-br from-teal-400 to-orange-500 rounded-lg flex items-center justify-center">
+                    <span class="text-white font-bold text-lg">B</span>
+                </div>
+                <span class="text-white text-xl font-bold">BioGen AI</span>
+            </div>
+            <p class="text-gray-400 text-sm">
+                © 2025 BioGen AI. 致力于推动AI驱动的医疗研究创新.
+            </p>
+        </div>
+    </footer>
+
+    <script src="main.js"></script>
+    <script>
+        // Page-specific initialization
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeBindingSiteSelector();
+            initializeBinderGeneration();
+        });
+        
+        function initializeBindingSiteSelector() {
+            const selector = document.getElementById('binding-site-selector');
+            const residues = document.querySelectorAll('.residue-highlight');
+            
+            selector.addEventListener('click', function() {
+                this.classList.toggle('active');
+                
+                if (this.classList.contains('active')) {
+                    // Show residue selection mode
+                    residues.forEach(residue => {
+                        residue.style.animation = 'pulse 2s infinite';
+                    });
+                    
+                    showNotification('请选择结合位点残基', 'info');
+                } else {
+                    // Hide residue selection
+                    residues.forEach(residue => {
+                        residue.style.animation = 'none';
+                    });
+                }
+            });
+            
+            residues.forEach(residue => {
+                residue.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    this.style.fill = this.style.fill === 'rgb(237, 137, 54)' ? '#38b2ac' : '#ed8936';
+                    showNotification(`已选择残基: ${this.dataset.residue}`, 'success');
+                });
+            });
+        }
+        
+        function initializeBinderGeneration() {
+            const generateBtn = document.getElementById('generate-binder');
+            const resultsDiv = document.getElementById('binder-results');
+            const noResultsDiv = document.getElementById('no-binder-results');
+            const analysisPanel = document.getElementById('analysis-panel');
+            const binderProtein = document.getElementById('binder-protein');
+            const interactions = document.getElementById('interactions');
+            
+            generateBtn.addEventListener('click', function() {
+                const pdbId = document.getElementById('pdb-id').value.trim();
+                if (!pdbId) {
+                    showNotification('请输入PDB ID或序列', 'error');
+                    return;
+                }
+                
+                showNotification('正在生成Binder序列...', 'info');
+                
+                // Simulate generation process
+                setTimeout(() => {
+                    displayBinderResults();
+                    binderProtein.style.display = 'block';
+                    interactions.style.display = 'block';
+                    analysisPanel.style.display = 'block';
+                    showNotification('Binder生成完成！', 'success');
+                    initializeEnergyChart();
+                }, 2000);
+            });
+        }
+        
+        function displayBinderResults() {
+            const resultsDiv = document.getElementById('binder-results');
+            const noResultsDiv = document.getElementById('no-binder-results');
+            
+            const mockResults = [
+                {
+                    sequence: 'MKTLLCLVAVLGLCLVTSVPGQGTQSPQFLIRQHPNKDLQLQGKDIEQALPSYCYSNQFPVGKDLQLQGKDIEQALPSYCYSNQFPVGK',
+                    bindingEnergy: '-15.2 kcal/mol',
+                    specificity: '98.5%',
+                    score: 0.91,
+                    length: 52,
+                    hotspot: 'YQLQGK'
+                },
+                {
+                    sequence: 'MKTLLCLVAVLGLCLVTSVPGQGTQSPQFLIRQHPNKDLQLQGKDIEQALPSYCYSNQFPVGKDLQLQGKDIEQALPSYCYSNQFPVGK',
+                    bindingEnergy: '-12.8 kcal/mol',
+                    specificity: '96.2%',
+                    score: 0.87,
+                    length: 48,
+                    hotspot: 'IRQHPN'
+                },
+                {
+                    sequence: 'MKTLLCLVAVLGLCLVTSVPGQGTQSPQFLIRQHPNKDLQLQGKDIEQALPSYCYSNQFPVGKDLQLQGKDIEQALPSYCYSNQFPVGK',
+                    bindingEnergy: '-11.5 kcal/mol',
+                    specificity: '94.7%',
+                    score: 0.83,
+                    length: 45,
+                    hotspot: 'QALPSY'
+                }
+            ];
+            
+            resultsDiv.innerHTML = mockResults.map((result, index) => `
+                <div class="binder-result">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-white font-semibold">Binder ${index + 1}</h4>
+                        <div class="flex items-center space-x-2">
+                            <span class="binding-energy">${result.bindingEnergy}</span>
+                            <span class="specificity-score">${result.specificity}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <div>
+                            <div class="text-xs text-gray-400 mb-1">序列 (长度: ${result.length} aa)</div>
+                            <div class="text-gray-300 text-xs font-mono break-all bg-black/20 p-2 rounded">
+                                ${result.sequence}
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <div class="text-gray-400">热点区域</div>
+                                <div class="text-teal-400 font-mono">${result.hotspot}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-400">结合界面</div>
+                                <div class="text-orange-400">850 Å²</div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between pt-2">
+                            <div class="flex-1 bg-gray-700 rounded-full h-2 mr-3">
+                                <div class="bg-gradient-to-r from-teal-500 to-orange-500 h-2 rounded-full" style="width: ${result.score * 100}%"></div>
+                            </div>
+                            <span class="text-white text-sm font-medium">${Math.round(result.score * 100)}分</span>
+                        </div>
+                        
+                        <div class="flex space-x-2 mt-3">
+                            <button class="flex-1 bg-teal-500/20 text-teal-400 py-2 px-3 rounded text-xs hover:bg-teal-500/30 transition-colors">
+                                分子动力学
+                            </button>
+                            <button class="flex-1 bg-orange-500/20 text-orange-400 py-2 px-3 rounded text-xs hover:bg-orange-500/30 transition-colors">
+                                实验验证
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            resultsDiv.style.display = 'block';
+            noResultsDiv.style.display = 'none';
+            
+            // Animate results
+            anime({
+                targets: '.binder-result',
+                opacity: [0, 1],
+                translateY: [20, 0],
+                duration: 600,
+                delay: anime.stagger(100),
+                easing: 'easeOutExpo'
+            });
+        }
+        
+        function initializeEnergyChart() {
+            const chartDom = document.getElementById('energy-chart');
+            const myChart = echarts.init(chartDom);
+            
+            const option = {
+                backgroundColor: 'transparent',
+                grid: {
+                    left: '10%',
+                    right: '10%',
+                    top: '10%',
+                    bottom: '15%'
+                },
+                xAxis: {
+                    type: 'category',
+                    data: ['范德华力', '氢键', '疏水', '离子键', '总能量'],
+                    axisLabel: {
+                        color: '#9CA3AF',
+                        fontSize: 10
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            color: '#374151'
+                        }
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '能量 (kcal/mol)',
+                    nameTextStyle: {
+                        color: '#9CA3AF',
+                        fontSize: 10
+                    },
+                    axisLabel: {
+                        color: '#9CA3AF',
+                        fontSize: 10
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            color: '#374151'
+                        }
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: '#374151'
+                        }
+                    }
+                },
+                series: [{
+                    data: [-8.5, -4.2, -6.8, -2.1, -15.2],
+                    type: 'bar',
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: '#38b2ac' },
+                            { offset: 1, color: '#319795' }
+                        ])
+                    },
+                    label: {
+                        show: true,
+                        position: 'top',
+                        color: '#ffffff',
+                        fontSize: 10
+                    }
+                }]
+            };
+            
+            myChart.setOption(option);
+            
+            // Responsive
+            window.addEventListener('resize', function() {
+                myChart.resize();
+            });
+        }
+    </script>
+</body>
+</html>

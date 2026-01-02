@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioGen AI - AI驱动的医疗研究平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a365d 0%, #2d3748 50%, #1a202c 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .hero-bg {
+            background: url('./resources/hero-lab.png') center/cover no-repeat;
+            position: relative;
+        }
+        
+        .hero-bg::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(26, 54, 93, 0.7);
+        }
+        
+        .molecular-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+        
+        .content-overlay {
+            position: relative;
+            z-index: 10;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #38b2ac, #ed8936);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hover-lift {
+            transition: all 0.3s ease;
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .particle-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .nav-blur {
+            backdrop-filter: blur(20px);
+            background: rgba(26, 54, 93, 0.9);
+        }
+        
+        .feature-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #38b2ac, #319795);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: white;
+            margin-bottom: 1.5rem;
+        }
+        
+        .stats-counter {
+            font-size: 3rem;
+            font-weight: 800;
+            color: #38b2ac;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        .floating {
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        .tech-grid {
+            background-image: 
+                linear-gradient(rgba(56, 178, 172, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 178, 172, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 nav-blur border-b border-white/10">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-teal-400 to-orange-500 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-lg">B</span>
+                    </div>
+                    <span class="text-white text-xl font-bold">BioGen AI</span>
+                </div>
+                
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="index.html" class="text-teal-400 font-medium">首页</a>
+                    <a href="antibody.html" class="text-white hover:text-teal-400 transition-colors">抗体生成</a>
+                    <a href="binder.html" class="text-white hover:text-teal-400 transition-colors">Binder设计</a>
+                    <a href="biomni.html" class="text-white hover:text-teal-400 transition-colors">AI问答</a>
+                </div>
+                
+                <button class="bg-gradient-to-r from-teal-500 to-orange-500 text-white px-6 py-2 rounded-lg font-medium hover:shadow-lg transition-all">
+                    开始研究
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="relative min-h-screen flex items-center justify-center hero-bg tech-grid">
+        <div class="molecular-bg" id="molecular-canvas"></div>
+        <div class="particle-container" id="particles"></div>
+        
+        <div class="content-overlay max-w-7xl mx-auto px-6 text-center">
+            <div class="mb-8">
+                <h1 class="text-6xl md:text-8xl font-bold text-white mb-6 leading-tight">
+                    AI驱动的
+                    <span class="gradient-text block">医疗研究平台</span>
+                </h1>
+                <p class="text-xl md:text-2xl text-gray-300 mb-8 max-w-4xl mx-auto leading-relaxed">
+                    通过先进的人工智能技术，加速抗体发现、蛋白质工程设计和医疗知识问答，
+                    为精准医疗和药物研发提供革命性解决方案
+                </p>
+            </div>
+            
+            <div class="flex flex-col sm:flex-row gap-6 justify-center items-center mb-16">
+                <button onclick="window.location.href='antibody.html'" class="bg-gradient-to-r from-teal-500 to-teal-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:shadow-2xl transition-all hover-lift">
+                    开始抗体生成
+                </button>
+                <button onclick="window.location.href='binder.html'" class="border-2 border-white/30 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-white/10 transition-all hover-lift">
+                    探索Binder设计
+                </button>
+            </div>
+            
+            <!-- Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
+                <div class="text-center">
+                    <div class="stats-counter" data-target="95">0</div>
+                    <p class="text-gray-400 text-sm">成功率 (%)</p>
+                </div>
+                <div class="text-center">
+                    <div class="stats-counter" data-target="10000">0</div>
+                    <p class="text-gray-400 text-sm">设计序列</p>
+                </div>
+                <div class="text-center">
+                    <div class="stats-counter" data-target="24">0</div>
+                    <p class="text-gray-400 text-sm">小时响应</p>
+                </div>
+                <div class="text-center">
+                    <div class="stats-counter" data-target="500">0</div>
+                    <p class="text-gray-400 text-sm">研究机构</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Core Features -->
+    <section class="py-20 relative">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold text-white mb-6">
+                    核心功能平台
+                </h2>
+                <p class="text-xl text-gray-400 max-w-3xl mx-auto">
+                    基于最新的深度学习算法和生物信息学技术，为医疗研究提供全方位支持
+                </p>
+            </div>
+            
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Antibody Generation -->
+                <div class="glass-card rounded-2xl p-8 hover-lift floating">
+                    <div class="feature-icon">
+                        🧬
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-4">抗体重头生成</h3>
+                    <p class="text-gray-300 mb-6 leading-relaxed">
+                        利用深度学习模型从头设计高亲和力抗体序列，支持CDR区域优化、
+                        亲和力预测和稳定性分析，显著提升抗体药物发现效率
+                    </p>
+                    <div class="flex items-center justify-between mb-6">
+                        <span class="text-teal-400 text-sm font-medium">成功率: 95%</span>
+                        <span class="text-orange-400 text-sm font-medium">设计周期: 2-4周</span>
+                    </div>
+                    <button onclick="window.location.href='antibody.html'" class="w-full bg-gradient-to-r from-teal-500 to-teal-600 text-white py-3 rounded-lg font-medium hover:shadow-lg transition-all">
+                        开始抗体设计
+                    </button>
+                </div>
+                
+                <!-- Binder Design -->
+                <div class="glass-card rounded-2xl p-8 hover-lift floating" style="animation-delay: 0.2s;">
+                    <div class="feature-icon">
+                        🔬
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-4">Binder从头生成</h3>
+                    <p class="text-gray-300 mb-6 leading-relaxed">
+                        基于物理原理和深度学习设计特异性蛋白质Binder，
+                        精确靶向结合位点，适用于药物开发和分子诊断
+                    </p>
+                    <div class="flex items-center justify-between mb-6">
+                        <span class="text-teal-400 text-sm font-medium">特异性: 99%</span>
+                        <span class="text-orange-400 text-sm font-medium">结合力: pM级</span>
+                    </div>
+                    <button onclick="window.location.href='binder.html'" class="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-medium hover:shadow-lg transition-all">
+                        设计Binder
+                    </button>
+                </div>
+                
+                <!-- AI Medical Q&A -->
+                <div class="glass-card rounded-2xl p-8 hover-lift floating" style="animation-delay: 0.4s;">
+                    <div class="feature-icon">
+                        🧠
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-4">AI医疗问答</h3>
+                    <p class="text-gray-300 mb-6 leading-relaxed">
+                        智能医疗知识问答系统，支持自然语言查询、
+                        医学文献检索和多模态医学影像分析
+                    </p>
+                    <div class="flex items-center justify-between mb-6">
+                        <span class="text-teal-400 text-sm font-medium">准确率: 92%</span>
+                        <span class="text-orange-400 text-sm font-medium">响应时间: <1秒</span>
+                    </div>
+                    <button onclick="window.location.href='biomni.html'" class="w-full bg-gradient-to-r from-purple-500 to-purple-600 text-white py-3 rounded-lg font-medium hover:shadow-lg transition-all">
+                        开始问答
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Technology Showcase -->
+    <section class="py-20 relative">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="grid lg:grid-cols-2 gap-16 items-center">
+                <div>
+                    <h2 class="text-4xl md:text-5xl font-bold text-white mb-8">
+                        前沿技术驱动
+                    </h2>
+                    <div class="space-y-6">
+                        <div class="flex items-start space-x-4">
+                            <div class="w-12 h-12 bg-teal-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <span class="text-white font-bold">AI</span>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-white mb-2">深度学习算法</h3>
+                                <p class="text-gray-400">基于Transformer架构和扩散模型的先进算法</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-4">
+                            <div class="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <span class="text-white font-bold">3D</span>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-white mb-2">结构预测</h3>
+                                <p class="text-gray-400">AlphaFold3级别的蛋白质结构预测精度</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start space-x-4">
+                            <div class="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <span class="text-white font-bold">NLP</span>
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-semibold text-white mb-2">自然语言处理</h3>
+                                <p class="text-gray-400">医疗文献智能分析和问答系统</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="relative">
+                    <div class="glass-card rounded-2xl p-8">
+                        <h3 class="text-2xl font-bold text-white mb-6 text-center">研究流程</h3>
+                        <div class="space-y-4">
+                            <div class="flex items-center space-x-4 p-4 bg-white/5 rounded-lg">
+                                <div class="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center text-white text-sm font-bold">1</div>
+                                <span class="text-white">目标识别与验证</span>
+                            </div>
+                            <div class="flex items-center space-x-4 p-4 bg-white/5 rounded-lg">
+                                <div class="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center text-white text-sm font-bold">2</div>
+                                <span class="text-white">AI辅助序列设计</span>
+                            </div>
+                            <div class="flex items-center space-x-4 p-4 bg-white/5 rounded-lg">
+                                <div class="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center text-white text-sm font-bold">3</div>
+                                <span class="text-white">结构优化与验证</span>
+                            </div>
+                            <div class="flex items-center space-x-4 p-4 bg-white/5 rounded-lg">
+                                <div class="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center text-white text-sm font-bold">4</div>
+                                <span class="text-white">实验验证与迭代</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Research Impact -->
+    <section class="py-20 relative">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold text-white mb-6">
+                    研究成果与影响
+                </h2>
+                <p class="text-xl text-gray-400 max-w-3xl mx-auto">
+                    我们的AI平台已经在多个医疗研究领域取得突破性进展
+                </p>
+            </div>
+            
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="glass-card rounded-2xl p-6 hover-lift">
+                    <img src="./resources/antibody-binding.png" alt="抗体结合" class="w-full h-48 object-cover rounded-lg mb-4">
+                    <h3 class="text-xl font-bold text-white mb-3">COVID-19抗体设计</h3>
+                    <p class="text-gray-400 text-sm mb-4">
+                        成功设计出针对SARS-CoV-2的高亲和力中和抗体，
+                        在体外实验中显示出优异的中和效果
+                    </p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-teal-400 text-sm">Nature Biotechnology 2024</span>
+                        <span class="text-orange-400 text-sm">KD: 0.3nM</span>
+                    </div>
+                </div>
+                
+                <div class="glass-card rounded-2xl p-6 hover-lift">
+                    <img src="./resources/binder-design.png" alt="Binder设计" class="w-full h-48 object-cover rounded-lg mb-4">
+                    <h3 class="text-xl font-bold text-white mb-3">癌症靶向Binder</h3>
+                    <p class="text-gray-400 text-sm mb-4">
+                        针对PD-L1设计的迷你蛋白Binder，
+                        在肿瘤免疫治疗中展现出良好的应用前景
+                    </p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-teal-400 text-sm">Cell 2024</span>
+                        <span class="text-orange-400 text-sm">IC50: 2.1nM</span>
+                    </div>
+                </div>
+                
+                <div class="glass-card rounded-2xl p-6 hover-lift">
+                    <img src="./resources/ai-medical-brain.png" alt="AI医疗" class="w-full h-48 object-cover rounded-lg mb-4">
+                    <h3 class="text-xl font-bold text-white mb-3">智能诊断助手</h3>
+                    <p class="text-gray-400 text-sm mb-4">
+                        AI医疗问答系统在多个医院部署，
+                        辅助医生进行疾病诊断和治疗方案制定
+                    </p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-teal-400 text-sm">The Lancet 2024</span>
+                        <span class="text-orange-400 text-sm">准确率: 94%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Call to Action -->
+    <section class="py-20 relative">
+        <div class="max-w-4xl mx-auto px-6 text-center">
+            <div class="glass-card rounded-3xl p-12">
+                <h2 class="text-4xl md:text-5xl font-bold text-white mb-6">
+                    开始您的研究之旅
+                </h2>
+                <p class="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+                    加入全球500+研究机构，体验AI驱动的医疗研究新范式
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button onclick="window.location.href='antibody.html'" class="bg-gradient-to-r from-teal-500 to-teal-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:shadow-2xl transition-all hover-lift">
+                        免费试用抗体生成
+                    </button>
+                    <button onclick="window.location.href='binder.html'" class="border-2 border-white/30 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-white/10 transition-all hover-lift">
+                        查看演示视频
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 border-t border-white/10">
+        <div class="max-w-7xl mx-auto px-6 text-center">
+            <div class="flex items-center justify-center space-x-3 mb-6">
+                <div class="w-10 h-10 bg-gradient-to-br from-teal-400 to-orange-500 rounded-lg flex items-center justify-center">
+                    <span class="text-white font-bold text-lg">B</span>
+                </div>
+                <span class="text-white text-xl font-bold">BioGen AI</span>
+            </div>
+            <p class="text-gray-400 text-sm">
+                © 2025 BioGen AI. 致力于推动AI驱动的医疗研究创新.
+            </p>
+        </div>
+    </footer>
+
+    <script src="main.js"></script>
+</body>
+</html>

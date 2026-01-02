@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抗体重头生成工具 - BioGen AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a365d 0%, #2d3748 50%, #1a202c 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .nav-blur {
+            backdrop-filter: blur(20px);
+            background: rgba(26, 54, 93, 0.9);
+        }
+        
+        .sequence-input {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(56, 178, 172, 0.3);
+            color: white;
+        }
+        
+        .sequence-input:focus {
+            border-color: #38b2ac;
+            box-shadow: 0 0 0 3px rgba(56, 178, 172, 0.1);
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, #38b2ac, #ed8936);
+            height: 8px;
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .parameter-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+        }
+        
+        .parameter-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #38b2ac;
+            cursor: pointer;
+        }
+        
+        .parameter-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #38b2ac;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .result-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .result-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+        }
+        
+        .affinity-badge {
+            background: linear-gradient(135deg, #38b2ac, #319795);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .stability-badge {
+            background: linear-gradient(135deg, #ed8936, #dd6b20);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .visualization-3d {
+            background: radial-gradient(circle at center, rgba(56, 178, 172, 0.1), transparent);
+            border-radius: 12px;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .molecule-rotation {
+            animation: rotate 20s linear infinite;
+        }
+        
+        @keyframes rotate {
+            from { transform: rotateY(0deg); }
+            to { transform: rotateY(360deg); }
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(56, 178, 172, 0.3);
+            border-top: 4px solid #38b2ac;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 nav-blur border-b border-white/10">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-teal-400 to-orange-500 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-lg">B</span>
+                    </div>
+                    <span class="text-white text-xl font-bold">BioGen AI</span>
+                </div>
+                
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="index.html" class="text-white hover:text-teal-400 transition-colors">首页</a>
+                    <a href="antibody.html" class="text-teal-400 font-medium">抗体生成</a>
+                    <a href="binder.html" class="text-white hover:text-teal-400 transition-colors">Binder设计</a>
+                    <a href="biomni.html" class="text-white hover:text-teal-400 transition-colors">AI问答</a>
+                </div>
+                
+                <button class="bg-gradient-to-r from-teal-500 to-orange-500 text-white px-6 py-2 rounded-lg font-medium hover:shadow-lg transition-all">
+                    保存项目
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="pt-24 pb-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <!-- Header -->
+            <div class="text-center mb-12">
+                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
+                    抗体重头生成工具
+                </h1>
+                <p class="text-xl text-gray-400 max-w-3xl mx-auto">
+                    基于深度学习的抗体序列设计平台，支持高亲和力抗体的从头生成和优化
+                </p>
+            </div>
+
+            <!-- Tool Interface -->
+            <div class="grid lg:grid-cols-3 gap-8">
+                <!-- Left Panel - Input & Parameters -->
+                <div class="lg:col-span-1 space-y-6">
+                    <!-- Antigen Input -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-xl font-bold text-white mb-4">目标抗原序列</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">
+                                    抗原序列 (FASTA格式)
+                                </label>
+                                <textarea 
+                                    id="antigen-sequence"
+                                    class="sequence-input w-full h-32 p-3 rounded-lg resize-none focus:outline-none"
+                                    placeholder="请输入抗原氨基酸序列，例如：\nMKTLL..."
+                                ></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">
+                                    抗体类型
+                                </label>
+                                <select class="w-full p-3 bg-black/30 border border-white/20 rounded-lg text-white focus:outline-none focus:border-teal-400">
+                                    <option value="igg">IgG</option>
+                                    <option value="igm">IgM</option>
+                                    <option value="iga">IgA</option>
+                                    <option value="igd">IgD</option>
+                                    <option value="ige">IgE</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Parameters -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-xl font-bold text-white mb-4">设计参数</h3>
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">
+                                    亲和力要求 (KD)
+                                </label>
+                                <input type="range" class="parameter-slider w-full" min="0.1" max="10" value="1" step="0.1">
+                                <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                    <span>0.1 nM</span>
+                                    <span id="affinity-value">1.0 nM</span>
+                                    <span>10 nM</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">
+                                    稳定性权重
+                                </label>
+                                <input type="range" class="parameter-slider w-full" min="0.1" max="1" value="0.7" step="0.1">
+                                <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                    <span>低</span>
+                                    <span id="stability-value">中等</span>
+                                    <span>高</span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">
+                                    生成数量
+                                </label>
+                                <input type="range" class="parameter-slider w-full" min="3" max="20" value="5" step="1">
+                                <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                    <span>3</span>
+                                    <span id="quantity-value">5</span>
+                                    <span>20</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button 
+                            id="generate-antibody"
+                            class="w-full mt-6 bg-gradient-to-r from-teal-500 to-teal-600 text-white py-3 rounded-lg font-semibold text-lg hover:shadow-lg transition-all"
+                        >
+                            开始生成抗体
+                        </button>
+                    </div>
+
+                    <!-- Progress -->
+                    <div class="glass-card rounded-2xl p-6" id="generation-progress" style="display: none;">
+                        <h3 class="text-lg font-bold text-white mb-4">生成进度</h3>
+                        <div class="bg-gray-700 rounded-full h-2 mb-2">
+                            <div id="progress-bar" class="progress-bar"></div>
+                        </div>
+                        <div class="flex justify-between text-sm text-gray-400">
+                            <span>正在优化CDR区域...</span>
+                            <span id="progress-text">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Center Panel - 3D Visualization -->
+                <div class="lg:col-span-1">
+                    <div class="glass-card rounded-2xl p-6 h-full">
+                        <h3 class="text-xl font-bold text-white mb-4">3D结构预览</h3>
+                        <div class="visualization-3d">
+                            <div class="text-center">
+                                <div class="w-32 h-32 mx-auto mb-4 relative">
+                                    <!-- Antibody structure representation -->
+                                    <div class="molecule-rotation">
+                                        <svg viewBox="0 0 200 200" class="w-full h-full">
+                                            <!-- Antibody Y shape -->
+                                            <path d="M100 50 L80 80 L100 70 L120 80 Z" fill="#38b2ac" opacity="0.8"/>
+                                            <path d="M70 90 L50 130 L70 110 L90 130" fill="#ed8936" opacity="0.8"/>
+                                            <path d="M130 90 L150 130 L130 110 L110 130" fill="#ed8936" opacity="0.8"/>
+                                            <circle cx="100" cy="60" r="8" fill="#4299e1" opacity="0.9"/>
+                                            <circle cx="60" cy="120" r="6" fill="#4299e1" opacity="0.9"/>
+                                            <circle cx="140" cy="120" r="6" fill="#4299e1" opacity="0.9"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <p class="text-gray-400 text-sm">抗体结构示意图</p>
+                                <p class="text-gray-500 text-xs mt-2">生成后将显示详细的3D分子结构</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Statistics -->
+                        <div class="mt-6 grid grid-cols-2 gap-4">
+                            <div class="text-center p-4 bg-white/5 rounded-lg">
+                                <div class="text-2xl font-bold text-teal-400" id="success-rate">95%</div>
+                                <div class="text-sm text-gray-400">成功率</div>
+                            </div>
+                            <div class="text-center p-4 bg-white/5 rounded-lg">
+                                <div class="text-2xl font-bold text-orange-400" id="avg-affinity">0.5nM</div>
+                                <div class="text-sm text-gray-400">平均亲和力</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Panel - Results -->
+                <div class="lg:col-span-1">
+                    <div class="glass-card rounded-2xl p-6 h-full">
+                        <h3 class="text-xl font-bold text-white mb-4">生成结果</h3>
+                        <div id="antibody-results" style="display: none;">
+                            <!-- Results will be populated by JavaScript -->
+                        </div>
+                        <div id="no-results" class="text-center py-12">
+                            <div class="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                            </div>
+                            <p class="text-gray-400">点击"开始生成抗体"查看结果</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Technical Details -->
+    <section class="py-16 bg-black/20">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-white mb-4">技术原理</h2>
+                <p class="text-gray-400 max-w-3xl mx-auto">
+                    基于深度学习的抗体重头生成算法，结合物理约束和进化信息
+                </p>
+            </div>
+            
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-gradient-to-br from-teal-500 to-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <span class="text-white text-2xl">🧠</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">深度学习模型</h3>
+                    <p class="text-gray-400 text-sm">
+                        使用Transformer架构和扩散模型，学习抗体序列的深层特征和结构约束
+                    </p>
+                </div>
+                
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <span class="text-white text-2xl">⚡</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">物理约束优化</h3>
+                    <p class="text-gray-400 text-sm">
+                        结合分子动力学模拟和能量计算，确保设计的抗体具有良好稳定性
+                    </p>
+                </div>
+                
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <span class="text-white text-2xl">🎯</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">亲和力预测</h3>
+                    <p class="text-gray-400 text-sm">
+                        基于结构互补性和相互作用能计算，准确预测抗体-抗原结合亲和力
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 border-t border-white/10">
+        <div class="max-w-7xl mx-auto px-6 text-center">
+            <div class="flex items-center justify-center space-x-3 mb-6">
+                <div class="w-10 h-10 bg-gradient-to-br from-teal-400 to-orange-500 rounded-lg flex items-center justify-center">
+                    <span class="text-white font-bold text-lg">B</span>
+                </div>
+                <span class="text-white text-xl font-bold">BioGen AI</span>
+            </div>
+            <p class="text-gray-400 text-sm">
+                © 2025 BioGen AI. 致力于推动AI驱动的医疗研究创新.
+            </p>
+        </div>
+    </footer>
+
+    <script src="main.js"></script>
+    <script>
+        // Page-specific initialization
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeParameterSliders();
+            initializeAntibodyGeneration();
+        });
+        
+        function initializeParameterSliders() {
+            const sliders = document.querySelectorAll('.parameter-slider');
+            sliders.forEach(slider => {
+                slider.addEventListener('input', function() {
+                    updateSliderValue(this);
+                });
+            });
+        }
+        
+        function updateSliderValue(slider) {
+            const value = parseFloat(slider.value);
+            const sliderIndex = Array.from(document.querySelectorAll('.parameter-slider')).indexOf(slider);
+            
+            switch(sliderIndex) {
+                case 0: // Affinity
+                    document.getElementById('affinity-value').textContent = value.toFixed(1) + ' nM';
+                    break;
+                case 1: // Stability
+                    const stabilityLabels = ['低', '较低', '中等', '较高', '高'];
+                    document.getElementById('stability-value').textContent = stabilityLabels[Math.floor(value * 5) - 1] || '中等';
+                    break;
+                case 2: // Quantity
+                    document.getElementById('quantity-value').textContent = Math.round(value);
+                    break;
+            }
+        }
+        
+        function initializeAntibodyGeneration() {
+            const generateBtn = document.getElementById('generate-antibody');
+            const progressCard = document.getElementById('generation-progress');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            const resultsDiv = document.getElementById('antibody-results');
+            const noResultsDiv = document.getElementById('no-results');
+            
+            generateBtn.addEventListener('click', function() {
+                const sequence = document.getElementById('antigen-sequence').value.trim();
+                if (!sequence) {
+                    showNotification('请输入抗原序列', 'error');
+                    return;
+                }
+                
+                // Show progress
+                progressCard.style.display = 'block';
+                noResultsDiv.style.display = 'none';
+                
+                // Reset progress
+                progressBar.style.width = '0%';
+                progressText.textContent = '0%';
+                
+                // Simulate generation process
+                const steps = [
+                    { progress: 20, text: '分析抗原表位...' },
+                    { progress: 40, text: '设计CDR区域...' },
+                    { progress: 60, text: '优化框架区...' },
+                    { progress: 80, text: '计算亲和力...' },
+                    { progress: 100, text: '生成完成!' }
+                ];
+                
+                let currentStep = 0;
+                
+                const interval = setInterval(() => {
+                    if (currentStep < steps.length) {
+                        const step = steps[currentStep];
+                        progressBar.style.width = step.progress + '%';
+                        progressText.textContent = step.progress + '%';
+                        progressCard.querySelector('.text-gray-400').textContent = step.text;
+                        currentStep++;
+                    } else {
+                        clearInterval(interval);
+                        setTimeout(() => {
+                            progressCard.style.display = 'none';
+                            displayAntibodyResults();
+                            showNotification('抗体生成完成！', 'success');
+                        }, 500);
+                    }
+                }, 800);
+            });
+        }
+        
+        function displayAntibodyResults() {
+            const resultsDiv = document.getElementById('antibody-results');
+            const noResultsDiv = document.getElementById('no-results');
+            
+            const mockResults = [
+                {
+                    sequence: 'EVQLVESGGGLVQPGGSLRLSCAASGFTFSSYAMHWVRQAPGKGLEWVSAIGTAGDTYYPDSVKGRFTISRDNSKNTLYLQMNSLRAEDTAVYYCARRGQGLYAMDYWGQGTLVTVSS',
+                    affinity: '0.3 nM',
+                    stability: '96%',
+                    score: 0.94,
+                    cdr1: 'GFTFSSYA',
+                    cdr2: 'IGTAGDT',
+                    cdr3: 'RGQGLYAMDY'
+                },
+                {
+                    sequence: 'QVQLQESGPGLVKPSETLSLTCTVSGGSISSYYWGWIRQPPGKGLEWIGYIYYSGSTNYNPSLKSRVTISVDTSKNQFSLKLSSVTAADTAVYYCARGGYGDYWGQGTLVTVSS',
+                    affinity: '0.7 nM',
+                    stability: '93%',
+                    score: 0.89,
+                    cdr1: 'GGSISSYA',
+                    cdr2: 'YIYYSGS',
+                    cdr3: 'GGYGDY'
+                },
+                {
+                    sequence: 'EVQLLESGGGLVQPGGSLRLSCAASGFTFSSYAMSWVRQAPGKGLEWVSAIGTAGDTYYPDSVKGRFTISRDNSKNTLYLQMNSLRAEDTAVYYCARRGQGLYAMDYWGQGTLVTVSS',
+                    affinity: '1.2 nM',
+                    stability: '91%',
+                    score: 0.85,
+                    cdr1: 'GFTFSSYA',
+                    cdr2: 'IGTAGDT',
+                    cdr3: 'RGQGLYAMDY'
+                },
+                {
+                    sequence: 'QVQLVQSGAEVKKPGASVKVSCKVSGYTFTSYGISWVRQAPGQGLEWMGWISAYNGNTNYAQKLQGRVTMTTDTSTSTAYMELRSLRSDDTAVYYCARDSNYDYWGQGTLVTVSS',
+                    affinity: '1.8 nM',
+                    stability: '89%',
+                    score: 0.82,
+                    cdr1: 'GYTFTSYG',
+                    cdr2: 'WISAYNG',
+                    cdr3: 'DSNYDY'
+                },
+                {
+                    sequence: 'EVQLVESGGGLVQPGGSLRLSCAASGFTFDDYAMHWVRQAPGKGLEWVSGISWNSGSIGYADSVKGRFTISRDNAKNSLYLQMNSLRAEDTALYYCAKDSNYDYWGQGTLVTVSS',
+                    affinity: '2.1 nM',
+                    stability: '87%',
+                    score: 0.79,
+                    cdr1: 'GFTFDDYA',
+                    cdr2: 'GISWNSG',
+                    cdr3: 'DSNYDY'
+                }
+            ];
+            
+            resultsDiv.innerHTML = mockResults.map((result, index) => `
+                <div class="result-card">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-white font-semibold">候选抗体 ${index + 1}</h4>
+                        <div class="flex items-center space-x-2">
+                            <span class="affinity-badge">${result.affinity}</span>
+                            <span class="stability-badge">${result.stability}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <div>
+                            <div class="text-xs text-gray-400 mb-1">完整序列</div>
+                            <div class="text-gray-300 text-xs font-mono break-all bg-black/20 p-2 rounded">
+                                ${result.sequence}
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-3 gap-2 text-xs">
+                            <div>
+                                <div class="text-gray-400">CDR1</div>
+                                <div class="text-teal-400 font-mono">${result.cdr1}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-400">CDR2</div>
+                                <div class="text-orange-400 font-mono">${result.cdr2}</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-400">CDR3</div>
+                                <div class="text-purple-400 font-mono">${result.cdr3}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between pt-2">
+                            <div class="flex-1 bg-gray-700 rounded-full h-2 mr-3">
+                                <div class="bg-gradient-to-r from-teal-500 to-orange-500 h-2 rounded-full" style="width: ${result.score * 100}%"></div>
+                            </div>
+                            <span class="text-white text-sm font-medium">${Math.round(result.score * 100)}分</span>
+                        </div>
+                        
+                        <div class="flex space-x-2 mt-3">
+                            <button class="flex-1 bg-teal-500/20 text-teal-400 py-2 px-3 rounded text-xs hover:bg-teal-500/30 transition-colors">
+                                导出序列
+                            </button>
+                            <button class="flex-1 bg-orange-500/20 text-orange-400 py-2 px-3 rounded text-xs hover:bg-orange-500/30 transition-colors">
+                                3D建模
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            resultsDiv.style.display = 'block';
+            noResultsDiv.style.display = 'none';
+            
+            // Animate results
+            anime({
+                targets: '.result-card',
+                opacity: [0, 1],
+                translateY: [20, 0],
+                duration: 600,
+                delay: anime.stagger(100),
+                easing: 'easeOutExpo'
+            });
+        }
+    </script>
+</body>
+</html>

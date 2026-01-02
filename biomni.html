@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI医疗问答系统 - BioGen AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a365d 0%, #2d3748 50%, #1a202c 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .nav-blur {
+            backdrop-filter: blur(20px);
+            background: rgba(26, 54, 93, 0.9);
+        }
+        
+        .chat-container {
+            height: 600px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(56, 178, 172, 0.5) transparent;
+        }
+        
+        .chat-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .chat-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .chat-container::-webkit-scrollbar-thumb {
+            background: rgba(56, 178, 172, 0.5);
+            border-radius: 3px;
+        }
+        
+        .chat-message {
+            margin-bottom: 1.5rem;
+            animation: fadeInUp 0.5s ease-out;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .user-message {
+            background: linear-gradient(135deg, #38b2ac, #319795);
+            color: white;
+            border-radius: 18px 18px 4px 18px;
+            padding: 1rem 1.5rem;
+            margin-left: 20%;
+        }
+        
+        .ai-message {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 18px 18px 18px 4px;
+            padding: 1rem 1.5rem;
+            margin-right: 20%;
+        }
+        
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 18px 18px 18px 4px;
+            margin-right: 20%;
+        }
+        
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #38b2ac;
+            margin: 0 2px;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes typing {
+            0%, 80%, 100% {
+                transform: scale(0);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        .chat-input {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(56, 178, 172, 0.3);
+            color: white;
+            border-radius: 24px;
+            padding: 1rem 1.5rem;
+            resize: none;
+            font-family: inherit;
+        }
+        
+        .chat-input:focus {
+            border-color: #38b2ac;
+            box-shadow: 0 0 0 3px rgba(56, 178, 172, 0.1);
+            outline: none;
+        }
+        
+        .send-button {
+            background: linear-gradient(135deg, #38b2ac, #319795);
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .send-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 20px rgba(56, 178, 172, 0.3);
+        }
+        
+        .history-item {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .history-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-left-color: #38b2ac;
+        }
+        
+        .history-item.active {
+            background: rgba(56, 178, 172, 0.2);
+            border-left-color: #38b2ac;
+        }
+        
+        .knowledge-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .knowledge-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+        }
+        
+        .citation-link {
+            color: #38b2ac;
+            text-decoration: none;
+            font-size: 0.75rem;
+            transition: color 0.3s ease;
+        }
+        
+        .citation-link:hover {
+            color: #319795;
+            text-decoration: underline;
+        }
+        
+        .confidence-badge {
+            background: linear-gradient(135deg, #38b2ac, #319795);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .voice-button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .voice-button:hover {
+            background: rgba(56, 178, 172, 0.2);
+            border-color: #38b2ac;
+        }
+        
+        .voice-button.recording {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 nav-blur border-b border-white/10">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-teal-400 to-orange-500 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-lg">B</span>
+                    </div>
+                    <span class="text-white text-xl font-bold">BioGen AI</span>
+                </div>
+                
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="index.html" class="text-white hover:text-teal-400 transition-colors">首页</a>
+                    <a href="antibody.html" class="text-white hover:text-teal-400 transition-colors">抗体生成</a>
+                    <a href="binder.html" class="text-white hover:text-teal-400 transition-colors">Binder设计</a>
+                    <a href="biomni.html" class="text-teal-400 font-medium">AI问答</a>
+                </div>
+                
+                <button class="bg-gradient-to-r from-teal-500 to-orange-500 text-white px-6 py-2 rounded-lg font-medium hover:shadow-lg transition-all">
+                    导出对话
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="pt-24 pb-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <!-- Header -->
+            <div class="text-center mb-12">
+                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
+                    AI医疗问答系统
+                </h1>
+                <p class="text-xl text-gray-400 max-w-3xl mx-auto">
+                    基于大语言模型的智能医疗知识问答平台，支持自然语言查询和医学文献检索
+                </p>
+            </div>
+
+            <!-- Main Interface -->
+            <div class="grid lg:grid-cols-4 gap-6">
+                <!-- Left Panel - History & Categories -->
+                <div class="lg:col-span-1 space-y-6">
+                    <!-- Quick Categories -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-white mb-4">快速查询</h3>
+                        <div class="space-y-2">
+                            <button class="w-full text-left p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors text-gray-300">
+                                🔬 疾病诊断
+                            </button>
+                            <button class="w-full text-left p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors text-gray-300">
+                                💊 药物治疗
+                            </button>
+                            <button class="w-full text-left p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors text-gray-300">
+                                🧬 基因检测
+                            </button>
+                            <button class="w-full text-left p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors text-gray-300">
+                                🏥 临床指南
+                            </button>
+                            <button class="w-full text-left p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors text-gray-300">
+                                📊 医学统计
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Conversation History -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-white mb-4">对话历史</h3>
+                        <div class="space-y-1">
+                            <div class="history-item active">
+                                <div class="text-sm text-white font-medium truncate">COVID-19治疗方案</div>
+                                <div class="text-xs text-gray-400">2小时前</div>
+                            </div>
+                            <div class="history-item">
+                                <div class="text-sm text-white font-medium truncate">PD-L1抑制剂副作用</div>
+                                <div class="text-xs text-gray-400">昨天</div>
+                            </div>
+                            <div class="history-item">
+                                <div class="text-sm text-white font-medium truncate">基因编辑技术</div>
+                                <div class="text-xs text-gray-400">3天前</div>
+                            </div>
+                            <div class="history-item">
+                                <div class="text-sm text-white font-medium truncate">肿瘤标志物解读</div>
+                                <div class="text-xs text-gray-400">1周前</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Center Panel - Chat Interface -->
+                <div class="lg:col-span-2">
+                    <div class="glass-card rounded-2xl p-6 h-full">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-xl font-bold text-white">智能对话</h3>
+                            <div class="flex items-center space-x-2">
+                                <button class="voice-button" id="voice-btn" title="语音输入">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                                    </svg>
+                                </button>
+                                <span class="text-sm text-gray-400">置信度: </span>
+                                <span class="confidence-badge">94%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Chat Messages -->
+                        <div class="chat-container mb-6" id="chat-container">
+                            <div class="chat-message">
+                                <div class="ai-message">
+                                    <div class="flex items-start space-x-3">
+                                        <div class="w-8 h-8 bg-gradient-to-br from-teal-400 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                            <span class="text-white text-sm font-bold">AI</span>
+                                        </div>
+                                        <div class="flex-1">
+                                            <p class="text-sm text-gray-300 mb-2">
+                                                您好！我是BioGen AI医疗问答助手。我可以帮助您解答医学相关问题，
+                                                提供基于最新研究文献的专业解答。请随时提出您的问题。
+                                            </p>
+                                            <div class="flex items-center space-x-4 text-xs text-gray-500">
+                                                <span>基于 2024年最新医学文献</span>
+                                                <span>•</span>
+                                                <span>响应时间: 0.3秒</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Sample conversation -->
+                            <div class="chat-message">
+                                <div class="user-message">
+                                    <p class="text-sm">请问COVID-19的最新治疗方案有哪些？</p>
+                                </div>
+                            </div>
+                            
+                            <div class="chat-message">
+                                <div class="ai-message">
+                                    <div class="flex items-start space-x-3">
+                                        <div class="w-8 h-8 bg-gradient-to-br from-teal-400 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                            <span class="text-white text-sm font-bold">AI</span>
+                                        </div>
+                                        <div class="flex-1">
+                                            <p class="text-sm text-gray-300 mb-3">
+                                                根据2024年最新的临床指南，COVID-19的治疗方案主要包括以下几个方面：
+                                            </p>
+                                            
+                                            <div class="space-y-2 mb-3">
+                                                <div class="bg-white/5 rounded-lg p-3">
+                                                    <h4 class="text-white font-medium text-sm mb-1">1. 抗病毒治疗</h4>
+                                                    <p class="text-gray-400 text-xs">
+                                                        • Paxlovid (奈玛特韦/利托那韦) - 适用于轻中度患者<br>
+                                                        • Remdesivir (瑞德西韦) - 用于住院患者<br>
+                                                        • Molnupiravir (莫诺拉韦) - 口服抗病毒药物
+                                                    </p>
+                                                </div>
+                                                
+                                                <div class="bg-white/5 rounded-lg p-3">
+                                                    <h4 class="text-white font-medium text-sm mb-1">2. 免疫调节治疗</h4>
+                                                    <p class="text-gray-400 text-xs">
+                                                        • 糖皮质激素 - 用于重症患者<br>
+                                                        • IL-6抑制剂 - 托珠单抗<br>
+                                                        • JAK抑制剂 - 巴瑞替尼
+                                                    </p>
+                                                </div>
+                                                
+                                                <div class="bg-white/5 rounded-lg p-3">
+                                                    <h4 class="text-white font-medium text-sm mb-1">3. 支持治疗</h4>
+                                                    <p class="text-gray-400 text-xs">
+                                                        • 氧疗 - 维持血氧饱和度 >94%<br>
+                                                        • 液体管理 - 避免脱水或液体过载<br>
+                                                        • 抗凝治疗 - 预防血栓形成
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="flex items-center justify-between text-xs">
+                                                <div class="flex items-center space-x-2">
+                                                    <span class="text-gray-500">参考文献:</span>
+                                                    <a href="#" class="citation-link">WHO 2024指南</a>
+                                                    <span class="text-gray-500">•</span>
+                                                    <a href="#" class="citation-link">NEJM 2024</a>
+                                                </div>
+                                                <span class="text-gray-500">更新于: 2024-12</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Input Area -->
+                        <div class="flex items-end space-x-3">
+                            <textarea 
+                                id="chat-input"
+                                class="chat-input flex-1 resize-none"
+                                rows="1"
+                                placeholder="请输入您的问题..."
+                                style="min-height: 48px; max-height: 120px;"
+                            ></textarea>
+                            <button class="send-button" id="send-btn">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Panel - Knowledge & Resources -->
+                <div class="lg:col-span-1 space-y-6">
+                    <!-- Related Knowledge -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-white mb-4">相关知识</h3>
+                        <div class="space-y-3">
+                            <div class="knowledge-card">
+                                <h4 class="text-white font-medium text-sm mb-2">疾病概述</h4>
+                                <p class="text-gray-400 text-xs mb-2">
+                                    COVID-19是由SARS-CoV-2病毒引起的急性呼吸道传染病...
+                                </p>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-gray-500">置信度: 98%</span>
+                                    <button class="text-teal-400 text-xs hover:text-teal-300">详情</button>
+                                </div>
+                            </div>
+                            
+                            <div class="knowledge-card">
+                                <h4 class="text-white font-medium text-sm mb-2">药物机制</h4>
+                                <p class="text-gray-400 text-xs mb-2">
+                                    Paxlovid通过抑制3CL蛋白酶阻止病毒复制...
+                                </p>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-gray-500">置信度: 95%</span>
+                                    <button class="text-teal-400 text-xs hover:text-teal-300">详情</button>
+                                </div>
+                            </div>
+                            
+                            <div class="knowledge-card">
+                                <h4 class="text-white font-medium text-sm mb-2">临床研究</h4>
+                                <p class="text-gray-400 text-xs mb-2">
+                                    RECOVERY研究显示地塞米松可降低重症患者死亡率...
+                                </p>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-gray-500">置信度: 92%</span>
+                                    <button class="text-teal-400 text-xs hover:text-teal-300">详情</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recommended Papers -->
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-lg font-bold text-white mb-4">推荐文献</h3>
+                        <div class="space-y-3">
+                            <div class="p-3 bg-white/5 rounded-lg">
+                                <h4 class="text-white font-medium text-sm mb-1">
+                                    <a href="#" class="hover:text-teal-400 transition-colors">
+                                        Omicron变异株的免疫逃逸机制研究
+                                    </a>
+                                </h4>
+                                <p class="text-gray-400 text-xs mb-2">Nature Medicine • 2024</p>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-teal-400">影响因子: 87.2</span>
+                                    <span class="text-xs text-gray-500">引用: 1,245</span>
+                                </div>
+                            </div>
+                            
+                            <div class="p-3 bg-white/5 rounded-lg">
+                                <h4 class="text-white font-medium text-sm mb-1">
+                                    <a href="#" class="hover:text-teal-400 transition-colors">
+                                        长新冠综合征的诊断标准更新
+                                    </a>
+                                </h4>
+                                <p class="text-gray-400 text-xs mb-2">The Lancet • 2024</p>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-teal-400">影响因子: 168.9</span>
+                                    <span class="text-xs text-gray-500">引用: 892</span>
+                                </div>
+                            </div>
+                            
+                            <div class="p-3 bg-white/5 rounded-lg">
+                                <h4 class="text-white font-medium text-sm mb-1">
+                                    <a href="#" class="hover:text-teal-400 transition-colors">
+                                        新型口服抗病毒药物的临床疗效
+                                    </a>
+                                </h4>
+                                <p class="text-gray-400 text-xs mb-2">NEJM • 2024</p>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-teal-400">影响因子: 158.5</span>
+                                    <span class="text-xs text-gray-500">引用: 2,156</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <section class="py-16 bg-black/20">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-white mb-4">系统特色</h2>
+                <p class="text-gray-400">基于先进AI技术的医疗知识服务平台</p>
+            </div>
+            
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-gradient-to-br from-teal-500 to-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <span class="text-white text-2xl">🧠</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">自然语言理解</h3>
+                    <p class="text-gray-400 text-sm">
+                        支持复杂的医学术语查询和多轮对话，准确理解用户意图
+                    </p>
+                </div>
+                
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <span class="text-white text-2xl">📚</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">知识图谱</h3>
+                    <p class="text-gray-400 text-sm">
+                        整合海量医学文献和临床指南，构建完整的医疗知识网络
+                    </p>
+                </div>
+                
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <span class="text-white text-2xl">🔬</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2">循证医学</h3>
+                    <p class="text-gray-400 text-sm">
+                        所有回答均基于高质量研究证据，提供文献引用和可靠性评估
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 border-t border-white/10">
+        <div class="max-w-7xl mx-auto px-6 text-center">
+            <div class="flex items-center justify-center space-x-3 mb-6">
+                <div class="w-10 h-10 bg-gradient-to-br from-teal-400 to-orange-500 rounded-lg flex items-center justify-center">
+                    <span class="text-white font-bold text-lg">B</span>
+                </div>
+                <span class="text-white text-xl font-bold">BioGen AI</span>
+            </div>
+            <p class="text-gray-400 text-sm">
+                © 2025 BioGen AI. 致力于推动AI驱动的医疗研究创新.
+            </p>
+        </div>
+    </footer>
+
+    <script src="main.js"></script>
+    <script>
+        // Page-specific initialization
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeChatInterface();
+            initializeVoiceInput();
+        });
+        
+        function initializeChatInterface() {
+            const chatInput = document.getElementById('chat-input');
+            const sendBtn = document.getElementById('send-btn');
+            const chatContainer = document.getElementById('chat-container');
+            
+            // Auto-resize textarea
+            chatInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            });
+            
+            // Send message on Enter (not Shift+Enter)
+            chatInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            // Send button click
+            sendBtn.addEventListener('click', sendMessage);
+            
+            function sendMessage() {
+                const message = chatInput.value.trim();
+                if (!message) return;
+                
+                // Add user message
+                addMessage(message, 'user');
+                chatInput.value = '';
+                chatInput.style.height = 'auto';
+                
+                // Show typing indicator
+                showTypingIndicator();
+                
+                // Simulate AI response
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const response = generateAIResponse(message);
+                    addMessage(response, 'ai');
+                }, 1500);
+            }
+            
+            function addMessage(message, type) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'chat-message';
+                
+                if (type === 'user') {
+                    messageDiv.innerHTML = `
+                        <div class="user-message">
+                            <p class="text-sm">${message}</p>
+                        </div>
+                    `;
+                } else {
+                    messageDiv.innerHTML = `
+                        <div class="ai-message">
+                            <div class="flex items-start space-x-3">
+                                <div class="w-8 h-8 bg-gradient-to-br from-teal-400 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <span class="text-white text-sm font-bold">AI</span>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm text-gray-300">${message}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                chatContainer.appendChild(messageDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+            
+            function showTypingIndicator() {
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'chat-message';
+                typingDiv.id = 'typing-indicator';
+                typingDiv.innerHTML = `
+                    <div class="typing-indicator">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <span class="ml-2 text-sm text-gray-400">AI正在思考...</span>
+                    </div>
+                `;
+                
+                chatContainer.appendChild(typingDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+            
+            function hideTypingIndicator() {
+                const typingIndicator = document.getElementById('typing-indicator');
+                if (typingIndicator) {
+                    typingIndicator.remove();
+                }
+            }
+            
+            function generateAIResponse(userMessage) {
+                // Simple response generation based on keywords
+                const responses = {
+                    'covid': 'COVID-19的治疗方案包括抗病毒药物、免疫调节剂和支持治疗。具体方案需要根据患者病情严重程度进行个体化调整。',
+                    '癌症': '癌症治疗包括手术、放疗、化疗、靶向治疗和免疫治疗等多种方式。近年来，CAR-T细胞疗法和PD-1/PD-L1抑制剂在多种肿瘤中显示出良好疗效。',
+                    '基因': '基因检测在精准医疗中发挥重要作用，可用于疾病风险评估、药物选择和疗效预测。常用的技术包括PCR、基因测序和基因芯片等。',
+                    '副作用': '药物副作用是药物治疗中常见的问题。预防和管理工作包括用药前评估、剂量调整、联合用药和对症支持治疗等。'
+                };
+                
+                // Check for keywords
+                for (const [key, response] of Object.entries(responses)) {
+                    if (userMessage.toLowerCase().includes(key.toLowerCase())) {
+                        return response;
+                    }
+                }
+                
+                // Default response
+                return '感谢您的问题。我会基于最新的医学文献和研究为您提供准确的答案。如果您有具体的医学问题，请详细描述，我将为您提供专业的医疗信息支持。';
+            }
+        }
+        
+        function initializeVoiceInput() {
+            const voiceBtn = document.getElementById('voice-btn');
+            let isRecording = false;
+            
+            voiceBtn.addEventListener('click', function() {
+                if (!isRecording) {
+                    startRecording();
+                } else {
+                    stopRecording();
+                }
+            });
+            
+            function startRecording() {
+                isRecording = true;
+                voiceBtn.classList.add('recording');
+                showNotification('开始语音输入', 'info');
+                
+                // Simulate voice recognition
+                setTimeout(() => {
+                    const recognizedText = "请介绍一下最新的肿瘤免疫治疗方法";
+                    document.getElementById('chat-input').value = recognizedText;
+                    stopRecording();
+                }, 3000);
+            }
+            
+            function stopRecording() {
+                isRecording = false;
+                voiceBtn.classList.remove('recording');
+                showNotification('语音输入结束', 'success');
+            }
+        }
+        
+        // Quick category buttons
+        document.querySelectorAll('.glass-card button').forEach(button => {
+            button.addEventListener('click', function() {
+                const category = this.textContent.trim();
+                const input = document.getElementById('chat-input');
+                
+                switch(category) {
+                    case '🔬 疾病诊断':
+                        input.value = '请问最新的疾病诊断标准有哪些更新？';
+                        break;
+                    case '💊 药物治疗':
+                        input.value = '请介绍新型药物的作用机制和临床应用';
+                        break;
+                    case '🧬 基因检测':
+                        input.value = '基因检测在精准医疗中的应用有哪些？';
+                        break;
+                    case '🏥 临床指南':
+                        input.value = '最新的临床诊疗指南有哪些重要更新？';
+                        break;
+                    case '📊 医学统计':
+                        input.value = '如何正确理解和应用医学统计学方法？';
+                        break;
+                }
+                
+                // Trigger input event to resize textarea
+                input.dispatchEvent(new Event('input'));
+                input.focus();
+            });
+        });
+        
+        // History items
+        document.querySelectorAll('.history-item').forEach(item => {
+            item.addEventListener('click', function() {
+                document.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+                
+                const topic = this.querySelector('.text-white').textContent;
+                showNotification(`已切换到: ${topic}`, 'info');
+            });
+        });
+    </script>
+</body>
+</html>
